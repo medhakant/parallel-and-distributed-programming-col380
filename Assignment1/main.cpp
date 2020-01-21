@@ -59,12 +59,16 @@ int main(int argc, char** argv)
     createMatrix(L, n);
     createMatrix(U, n); 
 
+    for(int i=0;i<n;i++)
+        L[i][i]=1;
+
     std::chrono::time_point<std::chrono::system_clock> start, end;
-    start = std::chrono::system_clock::now(); 
+    // start = std::chrono::system_clock::now(); 
     // cout<<argv[3]<<endl;
 	
     if(atoi(argv[3])==0)
     {
+        start = std::chrono::system_clock::now(); 
         // cout<<"hello";
         LUdecomposition(n, A, P, L, U);
         end = std::chrono::system_clock::now(); 
@@ -79,6 +83,7 @@ int main(int argc, char** argv)
     }
     else if(atoi(argv[3])==1)
     {
+        start = std::chrono::system_clock::now(); 
         // cout<<"hello"<<endl;
         LUopenMP(num_threads, n, A, P, L, U);
         end = std::chrono::system_clock::now(); 
@@ -93,6 +98,7 @@ int main(int argc, char** argv)
     }
     else
     {
+        start = std::chrono::system_clock::now(); 
         LUpthreads(num_threads, n, A, P, L, U);
         end = std::chrono::system_clock::now(); 
         std::chrono::duration<double> elapsed_seconds = end - start; 

@@ -1,10 +1,8 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
+#include <bits/stdc++.h>
 #include "mpi.h"
 #include "blocking_matmul.h"
 #include "nonblocking_matmul.h"
+#include "collective_matmul.h"
 
 void Matrix_Multiply(float *A, float *B, float *C, int m, int n, int p){
 	int i, j, k;
@@ -49,6 +47,9 @@ int main(int argc, char**argv)
     int mode = stoi(argv[2]);
     if(mode==0)
         blocking_matmul(argc, argv);
-    else
+    else if(mode==1)
         nonblocking_matmul(argc, argv);
+    else
+        collective_matmul(argc,argv);
+    
 }

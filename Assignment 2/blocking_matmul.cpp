@@ -1,11 +1,4 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
-#include "mpi.h"
-#include <bits/stdc++.h>
-#include "main.h"
-
+#include "blocking_matmul.h"
 using namespace std;
 
 void blocking_matmul(int argc, char**argv)
@@ -78,7 +71,6 @@ void blocking_matmul(int argc, char**argv)
                 for(int k=0;k<32;k++)
                 {
                     c[i*n+j] += a[i*32+k]*b[k*n+j];
-                    // printf("%f\n", c[i*n+j]);
                 }
             }
         }
@@ -102,39 +94,24 @@ void blocking_matmul(int argc, char**argv)
         printf("Serial done in %lf seconds.\n", (double)(finsim - stsim));
         if(IsEqual(c,d,n,n))
         {
-            printf("Yes");
+            printf("Yes\n");
         }
 
     }
     if(rank!=0)
     {
-	    // d = (float*)malloc(sizeof(float)*n*n);
-	    // float a[n*32], b[32*n], c[n*n];
-	    // float* a;
-	    // float *b;
-	    // float *c;
-	    // vector<float> a(32*n,0);
-	    // vector<float> b(32*n,0);
-	    // vector<float> c(n*n,0);
 	    float* a, *b, *c;
 	    int offset,rows;
-	    // rows=50;
         int source = 0;
         MPI_Recv(&offset, 1, MPI_INT, source, 1, MPI_COMM_WORLD, &status);
         MPI_Recv(&rows, 1, MPI_INT, source, 1, MPI_COMM_WORLD, &status);
     	
-    	// float a[rows*32];
-    	// float b[n*32];
-    	// float c[rows*n];
     	a = (float*)malloc(sizeof(float)*rows*32);
 	    b = (float*)malloc(sizeof(float)*32*n);
 	    c = (float*)malloc(sizeof(float)*rows*n);
-	    
-	    // vector<float> d(n*n,0);
 
         MPI_Recv(a, rows*32, MPI_FLOAT, source, 1, MPI_COMM_WORLD, &status);
         MPI_Recv(b, 32*n, MPI_FLOAT, source, 1, MPI_COMM_WORLD, &status);
-	    // printf("%d received till here\n", rank);
 
         /* Matrix multiplication */
         for(int i=0;i<rows;i++)
@@ -145,7 +122,6 @@ void blocking_matmul(int argc, char**argv)
                 for(int k=0;k<32;k++)
                 {
                     c[i*n+j] += a[i*32+k]*b[k*n+j];
-                    // printf("%f\n", c[i*n+j]);
                 }
             }
         }

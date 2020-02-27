@@ -2,4 +2,4 @@
 #include "mpi.h"
 #include <bits/stdc++.h>
 
-void nonblocking_matmul(int argc, char**argv);
+void collective_matmul(int argc, char**argv);

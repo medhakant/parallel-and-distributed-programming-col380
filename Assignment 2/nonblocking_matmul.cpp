@@ -1,11 +1,4 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
-#include "mpi.h"
-#include <bits/stdc++.h>
-#include "main.h"
-
+#include "nonblocking_matmul.h"
 using namespace std;
 
 void nonblocking_matmul(int argc, char**argv)
@@ -36,11 +29,6 @@ void nonblocking_matmul(int argc, char**argv)
         b = (float*)malloc(sizeof(float)*32*n);
         c = (float*)malloc(sizeof(float)*n*n);
         d = (float*)malloc(sizeof(float)*n*n);
-        // float a[32*n], b[32*n], c[n*n], d[n*n];
-        // vector<float> a(32*n,0);
-        // vector<float> b(32*n,0);
-        // vector<float> c(n*n,0);
-        // vector<float> d(n*n,0);
 
         for(int i=0;i<n;i++)
         {
@@ -69,24 +57,17 @@ void nonblocking_matmul(int argc, char**argv)
             rows = (rows>n-offset)?(n-offset):rows;
 
             MPI_Isend(&offset, 1, MPI_INT, dest, 1, MPI_COMM_WORLD, &request);
-            // MPI_Wait(&request, &status);
-            // printf("%d \n", offset);
             MPI_Isend(&rows, 1, MPI_INT, dest, 1, MPI_COMM_WORLD, &request);
-            // MPI_Wait(&request, &status);
             MPI_Isend(&a[offset*32], rows*32, MPI_FLOAT,dest,1, MPI_COMM_WORLD, &request);
-            // MPI_Wait(&request, &status);
             MPI_Isend(b, 32*n, MPI_FLOAT, dest, 1, MPI_COMM_WORLD, &request);
-            // MPI_Wait(&request, &status);
             offset = offset + rows;
 
         }
 
         MPI_Wait(&request, &status);
-        // printf("I've reached here\n");
         for (int source=1; source<size; source++)
         {
             MPI_Irecv(&offset, 1, MPI_INT, source, 2, MPI_COMM_WORLD, &request);
-            // MPI_Wait(&request, &status);
             MPI_Irecv(&rows, 1, MPI_INT, source, 2, MPI_COMM_WORLD, &request);
             MPI_Wait(&request, &status);
 
@@ -108,7 +89,7 @@ void nonblocking_matmul(int argc, char**argv)
         printf("Serial done in %lf seconds.\n", (double)(finsim - stsim));
         if(IsEqual(c,d,n,n))
         {
-            printf("Yes");
+            printf("Yes\n");
         }
 
     }
@@ -116,29 +97,20 @@ void nonblocking_matmul(int argc, char**argv)
     {
         float* a, *b, *c;
         int offset,rows;
-        // rows=50;
         int source = 0;
         MPI_Irecv(&offset, 1, MPI_INT, source, 1, MPI_COMM_WORLD, &request);
-        // MPI_Wait(&request, &status);
         MPI_Irecv(&rows, 1, MPI_INT, source, 1, MPI_COMM_WORLD, &request);
-        
-        // float a[rows*32];
-        // float b[n*32];
-        // float c[rows*n];
         MPI_Wait(&request, &status);
         
         a = (float*)malloc(sizeof(float)*rows*32);
         b = (float*)malloc(sizeof(float)*32*n);
         c = (float*)malloc(sizeof(float)*rows*n);
-        
-        // vector<float> d(n*n,0);
 
         MPI_Irecv(a, rows*32, MPI_FLOAT, source, 1, MPI_COMM_WORLD, &request);
         MPI_Wait(&request, &status);
         MPI_Irecv(b, 32*n, MPI_FLOAT, source, 1, MPI_COMM_WORLD, &request);
 
         MPI_Wait(&request, &status);
-        // printf("%d received till here\n", rank);
 
         /* Matrix multiplication */
         for(int i=0;i<rows;i++)
@@ -149,7 +121,6 @@ void nonblocking_matmul(int argc, char**argv)
                 for(int k=0;k<32;k++)
                 {
                     c[i*n+j] += a[i*32+k]*b[k*n+j];
-                    // printf("%f\n", c[i*n+j]);
                 }
             }
         }

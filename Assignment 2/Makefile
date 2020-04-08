@@ -2,7 +2,7 @@
 #creates an executable named ludecomp
 CC = mpic++
 LIBS = 
-CFLAGS = 
+CFLAGS = -O3
 FILES = nonblocking_matmul.cpp blocking_matmul.cpp collective_matmul.cpp main.cpp
 
 

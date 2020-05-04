@@ -44,7 +44,13 @@ void reducer(char *key, int keybytes, char *multivalue,int nvalues, int *valueby
   for(int i = 0; i < nvalues; i++){
     sum += s[i];
   }
-  pgr_intermediate[t] = sum;
+  kv->add(key,keybytes,(char *) &sum,sizeof(double));
+}
+
+void update(uint64_t itask, char *key, int keybytes, char *value,int valuebytes, KeyValue *kv, void *ptr){
+  int key_ = *(int *) key;
+  double value_ = *(double *) value;
+  pgr_intermediate[key_] = value_;
 }
 
 void readfile(string filename,vector<vector<int>>& links){
@@ -65,9 +71,50 @@ void readfile(string filename,vector<vector<int>>& links){
 }
 
 void pagerankgenerator(vector<vector<int>> incominglinks,vector<int> numlinks,vector<int> leafnodes,double alpha,double convergence,int checksteps){
+    
+}
+
+
+void transposelinkmatrix(vector<vector<int>> outgoinglinks,vector<vector<int>>& incominglinks,vector<int>& numlinks,vector<int>& leafnodes){
+    int npages = outgoinglinks.size();
+    for(int i=0;i<npages;i++){
+        vector<int> links;
+        incominglinks.push_back(links);
+        numlinks.push_back(0);
+    }
+
+    for(int i=0;i<npages;i++){
+        if(outgoinglinks[i].size()==0){
+            leafnodes.push_back(i);
+        }else{
+            numlinks[i] = outgoinglinks[i].size();
+            for(int j=0;j<outgoinglinks[i].size();j++){
+                int value = outgoinglinks[i][j];
+                incominglinks[value].push_back(i);
+            }
+        }
+    }    
+}
+
+void pagerank(int argc,char** argv){
+    MPI_Init(&argc,&argv);
     int rank,nprocs;
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
+
+    string inputFilename = argv[1];
+    vector<vector<int>> linkmatrix;
+    vector<int> numlinks;
+    vector<int> leafnodes;
+    double start, end;
+    double elapsed_seconds;
+    double convergence = 0.0001;
+    double alpha = 0.85;
+    int checksteps = 10000;
+    readfile(inputFilename,linkmatrix);
+    transposelinkmatrix(linkmatrix,incominglinks,numlinks,leafnodes);
+
+    start = MPI_Wtime();
     MapReduce *mr;
     int n = incominglinks.size();
     int m = leafnodes.size();
@@ -116,13 +163,15 @@ void pagerankgenerator(vector<vector<int>> incominglinks,vector<int> numlinks,ve
 
         MPI_Barrier(MPI_COMM_WORLD);
         mr = new MapReduce(MPI_COMM_WORLD);
-        mr->map(nprocs,mapper,NULL);
+        int nwords = mr->map(nprocs,mapper,NULL);
+        int nfiles = mr->mapfilecount;
         mr->gather(1);
         mr->convert();
-        mr->reduce(reducer,NULL);
+        int nunique = mr->reduce(reducer,NULL);
         mr->broadcast(0);
-        delete mr;
         MPI_Barrier(MPI_COMM_WORLD);
+        mr->map(mr,update,NULL);
+        delete mr;
 
         for (int k=0;k<n;k++){
             inew[k] = alpha*pgr_intermediate[k] + oneav + oneiv;
@@ -134,71 +183,37 @@ void pagerankgenerator(vector<vector<int>> incominglinks,vector<int> numlinks,ve
         }
         i++;
     }
-    MPI_Barrier(MPI_COMM_WORLD);
     pgr = inew;
-}
+    end = MPI_Wtime();
+    elapsed_seconds = end - start; 
 
-
-void transposelinkmatrix(vector<vector<int>> outgoinglinks,vector<vector<int>>& incominglinks,vector<int>& numlinks,vector<int>& leafnodes){
-    int npages = outgoinglinks.size();
-    for(int i=0;i<npages;i++){
-        vector<int> links;
-        incominglinks.push_back(links);
-        numlinks.push_back(0);
-    }
-
-    for(int i=0;i<npages;i++){
-        if(outgoinglinks[i].size()==0){
-            leafnodes.push_back(i);
-        }else{
-            numlinks[i] = outgoinglinks[i].size();
-            for(int j=0;j<outgoinglinks[i].size();j++){
-                int value = outgoinglinks[i][j];
-                incominglinks[value].push_back(i);
+    if(rank==0){
+        // print time elapsed in the computation
+        cout<<"Execution Time: "<<elapsed_seconds<<endl;
+        double sum = 0;
+        if(argc==4){
+            string outputFilename = argv[3];
+            ofstream outputFile(outputFilename);
+            for(int i=0;i<pgr.size();i++){
+                outputFile << i << " = " << pgr[i] << endl;
+                sum += pgr[i];
             }
-        }
-    }    
-}
+            outputFile << "s = " << sum << endl;
+            outputFile.close();
 
-void pagerank(vector<vector<int>> linkmatrix,double alpha,double convergence,int checksteps){
-    vector<int> numlinks;
-    vector<int> leafnodes;
-    transposelinkmatrix(linkmatrix,incominglinks,numlinks,leafnodes);
-    pagerankgenerator(incominglinks,numlinks,leafnodes,alpha,convergence,checksteps);
+        }else{
+            for(int i=0;i<pgr.size();i++){
+                cout << i << " = " << pgr[i] << endl;
+                sum += pgr[i];
+            }
+            cout << "s = " << sum << endl;
+        }
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize();
 }
 
 
 int main(int argc,char** argv){
-    string inputFilename = argv[1];
-    vector<vector<int>> links;
-    readfile(inputFilename,links);
-    time_point<system_clock> start, end;
-    duration<double> elapsed_seconds;
-    start = system_clock::now(); 
-    MPI_Init(&argc,&argv);
-    pagerank(links,0.85,0.00001,10000);
-    MPI_Finalize();
-    end = system_clock::now(); 
-    elapsed_seconds = end - start; 
-
-    // print time elapsed in the computation
-    cout<<"Execution Time: "<<elapsed_seconds.count()<<endl;
-    double sum = 0;
-    if(argc==4){
-        string outputFilename = argv[3];
-        ofstream outputFile(outputFilename);
-        for(int i=0;i<pgr.size();i++){
-            outputFile << i << " = " << pgr[i] << endl;
-            sum += pgr[i];
-        }
-        outputFile << "s = " << sum << endl;
-        outputFile.close();
-
-    }else{
-        for(int i=0;i<pgr.size();i++){
-            cout << i << " = " << pgr[i] << endl;
-            sum += pgr[i];
-        }
-        cout << "s = " << sum << endl;
-    }
+    pagerank(argc,argv);
 }
